@@ -31,7 +31,12 @@ def query(queryset, info):
 class QueryOptimizer(object):
     def __init__(self, info, *args, **kwargs):
         self.root_info = info
+
+        # Used if overriding resolve_id.
         self.id_field = kwargs.get('id_field', 'id')
+
+        # Used to include the parent_id in the 'only' set for prefetch hint.
+        self.parent_id_field = kwargs.get('parent_id_field', None)
 
     def optimize(self, queryset):
         info = self.root_info
@@ -41,6 +46,13 @@ class QueryOptimizer(object):
             info.field_asts[0],
             # info.parent_type,
         )
+
+        # For matching prefetched lists with their parent,
+        # the foreign key will be used.
+        # Force inclusion of parent_id_field if specified.
+        if self.parent_id_field:
+            store.append_only(self.parent_id_field)
+
         return store.optimize_queryset(queryset)
 
     def _get_type(self, field_def):
@@ -180,7 +192,12 @@ class QueryOptimizer(object):
                 # parent_type,
             )
             related_queryset = model_field.related_model.objects.all()
-            store.prefetch_related(name, field_store, related_queryset)
+
+            attname = None
+            if model_field and hasattr(model_field, 'field') and hasattr(model_field.field, 'attname'):
+                attname = model_field.field.attname
+
+            store.prefetch_related(name, field_store, related_queryset, attname=attname)
             return True
         if not model_field.is_relation:
             store.only(name)
@@ -306,6 +323,9 @@ class QueryOptimizerStore():
         self.prefetch_list = []
         self.only_list = []
 
+        # A list of values to force append to 'only' if only is used.
+        self.append_only_list = []
+
     def select_related(self, name, store):
         if store.select_list:
             for select in store.select_list:
@@ -325,8 +345,11 @@ class QueryOptimizerStore():
                 for only in store.only_list:
                     self.only_list.append(name + LOOKUP_SEP + only)
 
-    def prefetch_related(self, name, store, queryset):
+    def prefetch_related(self, name, store, queryset, attname=None):
         if store.select_list or store.only_list:
+            if attname and store.only_list:
+                store.only_list.append(attname)
+
             queryset = store.optimize_queryset(queryset)
             self.prefetch_list.append(Prefetch(name, queryset=queryset))
         elif store.prefetch_list:
@@ -339,6 +362,9 @@ class QueryOptimizerStore():
         if self.only_list is not None:
             self.only_list.append(field)
 
+    def append_only(self, field):
+        self.append_only_list.append(field)
+
     def abort_only_optimization(self):
         self.only_list = None
 
@@ -349,8 +375,11 @@ class QueryOptimizerStore():
         if self.prefetch_list:
             queryset = queryset.prefetch_related(*self.prefetch_list)
 
-        if self.only_list:
+        if self.only_list and self.append_only_list:
+            queryset = queryset.only(*self.only_list + self.append_only_list)
+        elif self.only_list:
             queryset = queryset.only(*self.only_list)
+
         return queryset
 
     def append(self, store):

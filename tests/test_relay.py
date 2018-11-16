@@ -255,3 +255,49 @@ def test_verify_should_return_global_uuid():
     assert not result.errors
     assert result.data['relayItemsGlobalUuid']['edges'][0]['node']['id'] == expected_id
     assert result.data['relayItemsGlobalUuid']['edges'][0]['node']['name'] == 'bar'
+
+
+@pytest.mark.django_db
+def test_prefetch_related_should_include_parent_key_id_in_only():
+    item_1 = Item.objects.create(id=10, name='foo')
+
+    item_1.children.create(id=11, name='b')
+    item_1.children.create(id=12, name='a')
+    item_1.children.create(id=13, name='r')
+
+    # Queries: count, relayItems, children, filteredChildren
+    with assert_num_queries(4):
+        result = schema.execute('''
+            query {
+                relayItems {
+                    edges {
+                        node {
+                            id
+                            name
+                            children {
+                                id
+                                name
+                            },
+                            filteredChildren (name: "a") {
+                                id
+                            }
+                        }
+                    }
+                }
+            }
+        ''')
+
+    assert not result.errors
+    assert result.data['relayItems']['edges'][0]['node']['id'] == '10'
+    assert result.data['relayItems']['edges'][0]['node']['name'] == 'foo'
+
+    assert len(result.data['relayItems']['edges'][0]['node']['children']) == 3
+    assert result.data['relayItems']['edges'][0]['node']['children'][0]['id'] == '11'
+    assert result.data['relayItems']['edges'][0]['node']['children'][0]['name'] == 'b'
+    assert result.data['relayItems']['edges'][0]['node']['children'][1]['id'] == '12'
+    assert result.data['relayItems']['edges'][0]['node']['children'][1]['name'] == 'a'
+    assert result.data['relayItems']['edges'][0]['node']['children'][2]['id'] == '13'
+    assert result.data['relayItems']['edges'][0]['node']['children'][2]['name'] == 'r'
+
+    assert len(result.data['relayItems']['edges'][0]['node']['filteredChildren']) == 1
+    assert result.data['relayItems']['edges'][0]['node']['filteredChildren'][0]['id'] == '12'

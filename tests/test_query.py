@@ -344,7 +344,7 @@ def test_should_fetch_fields_of_prefetched_field():
     qs = Item.objects.filter(name='foo')
     items = gql_optimizer.query(qs, info)
     optimized_items = qs.prefetch_related(
-        Prefetch('children', queryset=Item.objects.only('id')),
+        Prefetch('children', queryset=Item.objects.only('id', 'parent_id')),
     )
     assert_query_equality(items, optimized_items)
 

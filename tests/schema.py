@@ -47,7 +47,9 @@ class ItemInterface(graphene.Interface):
     @gql_optimizer.resolver_hints(
         prefetch_related=lambda info, name: Prefetch(
             'children',
-            queryset=gql_optimizer.query(Item.objects.filter(name=name), info),
+            queryset=gql_optimizer.QueryOptimizer(info, parent_id_field='parent_id').optimize(
+                Item.objects.filter(name=name)
+            ),
             to_attr='gql_filtered_children_' + name,
         ),
     )
