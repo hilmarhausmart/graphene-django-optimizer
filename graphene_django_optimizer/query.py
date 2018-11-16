@@ -6,7 +6,7 @@ from django.db.models.constants import LOOKUP_SEP
 from graphene import GlobalID
 from graphene.types.resolver import attr_resolver
 from graphene_django import DjangoObjectType
-from graphene_django.fields import DjangoListField
+from graphene_django.fields import DjangoListField, DjangoConnectionField
 from graphql import ResolveInfo
 from graphql.execution.base import (
     get_field_def,
@@ -205,7 +205,12 @@ class QueryOptimizer(object):
         return False
 
     def _get_optimization_hints(self, resolver):
-        return getattr(resolver, 'optimization_hints', None)
+        resolver_fn = resolver
+        if isinstance(resolver, functools.partial):
+            if resolver.func == DjangoConnectionField.connection_resolver:
+                resolver_fn = resolver.args[0]
+
+        return getattr(resolver_fn, 'optimization_hints', None)
 
     def _optimize_field_by_hints(self, store, selection, field_def, parent_type):
         optimization_hints = self._get_optimization_hints(field_def.resolver)
