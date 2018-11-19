@@ -168,9 +168,11 @@ class QueryOptimizer(object):
             store.abort_only_optimization()
 
     def _optimize_field_by_name(self, store, model, selection, field_def):
-        name = self._get_name_from_resolver(field_def.resolver)
+        name, ignore = self._get_name_from_resolver(field_def.resolver)
         if not name:
             return False
+        if ignore:
+            return True
         model_field = self._get_model_field_from_name(model, name)
         if not model_field:
             return False
@@ -260,15 +262,16 @@ class QueryOptimizer(object):
         if optimization_hints:
             name = optimization_hints.model_field
             if name:
-                return name
+                return name, optimization_hints.ignore
         if self._is_resolver_for_id_field(resolver):
-            return self.id_field
+            return self.id_field, False
         elif isinstance(resolver, functools.partial):
             resolver_fn = resolver
             if resolver_fn.func == DjangoListField.list_resolver:
                 resolver_fn = resolver_fn.args[0]
             if resolver_fn.func == attr_resolver:
-                return resolver_fn.args[0]
+                return resolver_fn.args[0], False
+        return None, False
 
     def _is_resolver_for_id_field(self, resolver):
         resolve_id = DjangoObjectType.resolve_id
