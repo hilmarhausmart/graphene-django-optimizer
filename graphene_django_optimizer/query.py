@@ -24,13 +24,6 @@ from graphql.type.definition import (
 from .utils import is_iterable
 
 
-try:
-    from graphene_django.filter import DjangoFilterConnectionField
-    django_filter = True
-except ImportError:
-    django_filter = False
-
-
 def query(queryset, info):
     return QueryOptimizer(info).optimize(queryset)
 
@@ -214,10 +207,8 @@ class QueryOptimizer(object):
     def _get_optimization_hints(self, resolver):
         resolver_fn = resolver
         if isinstance(resolver, functools.partial):
-            if resolver.func == DjangoConnectionField.connection_resolver:
-                resolver_fn = resolver.args[0]
-            elif django_filter:
-                if resolver.func == DjangoFilterConnectionField.connection_resolver:
+            if hasattr(resolver.func, '__self__'):
+                if issubclass(resolver.func.__self__, DjangoConnectionField) and resolver.func.__name__ == 'connection_resolver':
                     resolver_fn = resolver.args[0]
 
         return getattr(resolver_fn, 'optimization_hints', None)
