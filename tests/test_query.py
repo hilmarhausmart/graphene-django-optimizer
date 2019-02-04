@@ -434,7 +434,7 @@ def test_should_use_nested_prefetch_related_while_also_selecting_only_required_f
     optimized_items = qs.prefetch_related(
         Prefetch(
             'children',
-            queryset=Item.objects.only('id'),
+            queryset=Item.objects.only('id', 'parent_id'),
         ),
     )
     assert_query_equality(items, optimized_items)

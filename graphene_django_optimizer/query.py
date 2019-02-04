@@ -5,8 +5,9 @@ from django.db.models import ForeignKey, Prefetch
 from django.db.models.constants import LOOKUP_SEP
 from graphene import GlobalID
 from graphene.types.resolver import attr_resolver
-from graphene_django import DjangoObjectType
-from graphene_django.fields import DjangoListField, DjangoConnectionField
+from graphene_djangorestframework.types import DjangoObjectType
+from graphene_djangorestframework.fields import DjangoListField
+from graphene_djangorestframework.relay.fields import DjangoConnectionField
 from graphql import ResolveInfo
 from graphql.execution.base import (
     get_field_def,

@@ -1,7 +1,7 @@
 from django.db.models import Prefetch
 import graphene
-from graphene_django.fields import DjangoConnectionField
-from graphene_django.types import DjangoObjectType
+from graphene_djangorestframework.relay.fields import DjangoConnectionField
+from graphene_djangorestframework.types import DjangoObjectType
 import graphene_django_optimizer as gql_optimizer
 
 from .models import (

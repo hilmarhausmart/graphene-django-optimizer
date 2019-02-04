@@ -24,7 +24,7 @@ Having the following schema based on [the tutorial of graphene-django](http://do
 # cookbook/ingredients/schema.py
 import graphene
 
-from graphene_django.types import DjangoObjectType
+from graphene_djangorestframework.types import DjangoObjectType
 import graphene_django_optimizer as gql_optimizer
 
 from cookbook.ingredients.models import Category, Ingredient
@@ -115,7 +115,7 @@ If the resolver returns a model field, we can use the `model_field` argument:
 
 ```py
 import graphene
-from graphene_django.types import DjangoObjectType
+from graphene_djangorestframework.types import DjangoObjectType
 import graphene_django_optimizer as gql_optimizer
 
 
@@ -138,7 +138,7 @@ Now, if the resolver uses related fields, you can use the `select_related` argum
 
 ```py
 import graphene
-from graphene_django.types import DjangoObjectType
+from graphene_djangorestframework.types import DjangoObjectType
 import graphene_django_optimizer as gql_optimizer
 
 
@@ -160,7 +160,7 @@ that returns a `Prefetch` instance as the value.
 ```py
 from django.db.models import Prefetch
 import graphene
-from graphene_django.types import DjangoObjectType
+from graphene_djangorestframework.types import DjangoObjectType
 import graphene_django_optimizer as gql_optimizer
 
 
