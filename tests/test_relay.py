@@ -1,10 +1,13 @@
 import pytest
 
+from django.db.models import Count
+
 import graphene_django_optimizer as gql_optimizer
 
 from .graphql_utils import create_resolve_info
 from .models import (
     Item,
+    Catalogue,
 )
 from .schema import schema
 from .test_utils import assert_query_equality
@@ -301,3 +304,27 @@ def test_prefetch_related_should_include_parent_key_id_in_only():
 
     assert len(result.data['relayItems']['edges'][0]['node']['filteredChildren']) == 1
     assert result.data['relayItems']['edges'][0]['node']['filteredChildren'][0]['id'] == '12'
+
+
+@pytest.mark.django_db
+def test_should_work_with_suggested_annotations():
+    Catalogue.objects.create(name='foo')
+    # item_1 = Item.objects.create(id=7, name='foo')
+
+    info = create_resolve_info(schema, '''
+        query Query {
+            relayCatalogues {
+                edges {
+                    node {
+                        name
+                        itemCount
+                    }
+                }
+            }
+        }
+    ''')
+    qs = Catalogue.objects.all()
+    items = gql_optimizer.QueryOptimizer(info).optimize(qs)
+    optimized_items = qs.only('id', 'name')
+    optimized_items = qs.annotate(item_count=Count('items'))
+    assert_query_equality(items, optimized_items)

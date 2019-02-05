@@ -1,4 +1,5 @@
 from django.db.models import Prefetch
+from django.db.models import Count
 import graphene
 from graphene_djangorestframework.relay.fields import DjangoConnectionField
 from graphene_djangorestframework.types import DjangoObjectType
@@ -8,6 +9,7 @@ from .models import (
     DetailedItem,
     ExtraDetailedItem,
     Item,
+    Catalogue,
     RelatedItem,
     UnrelatedModel,
 )
@@ -78,6 +80,23 @@ class BaseItemType(DjangoObjectType):
         return root.children.all()
 
 
+class CatalogueNode(DjangoObjectType):
+    item_count = graphene.Int()
+
+    class Meta:
+        model = Catalogue
+        interfaces = (graphene.relay.Node, )
+
+    @gql_optimizer.resolver_hints(
+        annotate={
+            # 'item_count': Subquery(Item.objects.filter(catalogue=OuterRef('pk')).order_by().values('catalogue').annotate(c=Count('*')).values('c'))
+            'item_count': Count('items')
+        },
+    )
+    def resolve_item_count(self, info):
+        return self.item_count
+
+
 class ItemNode(BaseItemType):
     class Meta:
         model = Item
@@ -137,12 +156,16 @@ class UnrelatedModelType(DjangoObjectType):
 
 class Query(graphene.ObjectType):
     items = graphene.List(ItemInterface, name=graphene.String(required=True))
+    relay_catalogues = DjangoConnectionField(CatalogueNode)
     relay_items = DjangoConnectionField(ItemNode)
     relay_items_global_id = DjangoConnectionField(ItemNodeGlobalID)
     relay_items_global_uuid = DjangoConnectionField(ItemNodeGlobalUUID)
 
     def resolve_items(root, info, name):
         return gql_optimizer.query(Item.objects.filter(name=name), info)
+
+    def resolve_relay_catalogues(root, info, **kwargs):
+        return gql_optimizer.query(Catalogue.objects.all(), info)
 
     def resolve_relay_items(root, info, **kwargs):
         return gql_optimizer.query(Item.objects.all(), info)

@@ -17,10 +17,12 @@ class OptimizationHints(object):
         select_related=noop,
         prefetch_related=noop,
         only=noop,
+        annotate=noop,
         ignore=False,
     ):
         self.model_field = model_field
         self.prefetch_related = _normalize_hint_value(prefetch_related)
         self.select_related = _normalize_hint_value(select_related)
         self.only = _normalize_hint_value(only)
+        self.annotate = _normalize_hint_value(annotate)
         self.ignore = ignore
