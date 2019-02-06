@@ -52,11 +52,11 @@ class QueryOptimizer(object):
         # the foreign key will be used.
         # Force inclusion of parent_id_field if specified.
         if self.parent_id_field:
-            store.append_only(self.parent_id_field)
+            store.append_only_list(self.parent_id_field)
 
         # Allow forcing attributes in only.
         if append_only:
-            store.append_only += append_only
+            store.append_only_list += append_only
 
         return store.optimize_queryset(queryset)
 
