@@ -217,6 +217,8 @@ class QueryOptimizer(object):
             if hasattr(resolver.func, '__self__'):
                 if issubclass(resolver.func.__self__, DjangoConnectionField) and resolver.func.__name__ == 'connection_resolver':
                     resolver_fn = resolver.args[0]
+                elif issubclass(resolver.func.__self__, DjangoListField) and resolver.func.__name__ == 'list_resolver':
+                    resolver_fn = resolver.args[0]
 
         return getattr(resolver_fn, 'optimization_hints', None)
 
@@ -281,7 +283,7 @@ class QueryOptimizer(object):
             resolver_fn = resolver
             if resolver_fn.func == DjangoListField.list_resolver:
                 resolver_fn = resolver_fn.args[0]
-            if resolver_fn.func == attr_resolver:
+            if hasattr(resolver_fn, 'func') and resolver_fn.func == attr_resolver:
                 return resolver_fn.args[0], False
         return None, False
 
