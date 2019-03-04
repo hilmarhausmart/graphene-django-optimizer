@@ -438,3 +438,45 @@ def test_should_use_nested_prefetch_related_while_also_selecting_only_required_f
         ),
     )
     assert_query_equality(items, optimized_items)
+
+
+def test_should_use_include_directives():
+    info = create_resolve_info(schema, '''
+        query Items($withName: Boolean!, $withParent: Boolean!) {
+            items {
+                id
+                name @include(if: $withName)
+                parent @include(if: $withParent) {
+                    id
+                }
+            }
+        }
+    ''', variables={
+        'withName': True,
+        'withParent': False
+    })
+    qs = Item.objects.all()
+    items = gql_optimizer.query(qs, info)
+    optimized_items = qs.only('pk', 'name')
+    assert_query_equality(items, optimized_items)
+
+
+def test_should_use_skip_directives():
+    info = create_resolve_info(schema, '''
+        query Items($withoutName: Boolean!, $withoutParent: Boolean!) {
+            items {
+                id
+                name @skip(if: $withoutName)
+                parent @skip(if: $withoutParent) {
+                    id
+                }
+            }
+        }
+    ''', variables={
+        'withoutName': False,
+        'withoutParent': True
+    })
+    qs = Item.objects.all()
+    items = gql_optimizer.query(qs, info)
+    optimized_items = qs.only('pk', 'name')
+    assert_query_equality(items, optimized_items)

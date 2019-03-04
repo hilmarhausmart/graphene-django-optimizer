@@ -164,13 +164,37 @@ class QueryOptimizer(object):
         return store
 
     def _optimize_field(self, store, model, selection, field_def, parent_type):
-        optimized_by_name = self._optimize_field_by_name(
+        optimized_by_directive = self._optimize_field_by_directives(
             store, model, selection, field_def)
-        optimized_by_hints = self._optimize_field_by_hints(
-            store, selection, field_def, parent_type)
-        optimized = optimized_by_name or optimized_by_hints
+        optimized = optimized_by_directive
+        if not optimized:
+            optimized_by_name = self._optimize_field_by_name(
+                store, model, selection, field_def)
+            optimized_by_hints = self._optimize_field_by_hints(
+                store, selection, field_def, parent_type)
+            optimized = optimized_by_name or optimized_by_hints
         if not optimized:
             store.abort_only_optimization()
+
+    def _optimize_field_by_directives(self, store, model, selection, field_def):
+        variable_values = self.root_info.variable_values
+
+        for directive in selection.directives:
+            args = {}
+            for arg in directive.arguments:
+                if isinstance(arg.value, Variable):
+                    var_name = arg.value.name.value
+                    value = variable_values.get(var_name)
+                else:
+                    value = arg.value.value
+                args[arg.name.value] = value
+
+            if directive.name.value == 'include':
+                return not args.get('if', True)
+            elif directive.name.value == 'skip':
+                return args.get('if', False)
+
+        return False
 
     def _optimize_field_by_name(self, store, model, selection, field_def):
         name, ignore = self._get_name_from_resolver(field_def.resolver)
