@@ -106,7 +106,7 @@ class ItemNode(BaseItemType):
 class ItemNodeGlobalID(BaseItemType):
     class Meta:
         model = Item
-        only_fields = ('name', )
+        only_fields = ('name', 'catalogue', )
         interfaces = (graphene.relay.Node, )
 
 

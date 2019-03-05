@@ -1,6 +1,6 @@
 import pytest
 
-from django.db.models import Count
+from django.db.models import Count, Prefetch
 
 import graphene_django_optimizer as gql_optimizer
 
@@ -328,3 +328,74 @@ def test_should_work_with_suggested_annotations():
     optimized_items = qs.only('id', 'name')
     optimized_items = qs.annotate(item_count=Count('items'))
     assert_query_equality(items, optimized_items)
+
+
+@pytest.mark.django_db
+def test_should_work_with_nested_suggested_annotations_query():
+    catalogue_1 = Catalogue.objects.create(name='foo')
+    Item.objects.create(id=7, name='foo', catalogue=catalogue_1)
+
+    info = create_resolve_info(schema, '''
+        query Query {
+            relayItemsGlobalId {
+                edges {
+                    node {
+                        id
+                        catalogue {
+                          id
+                          itemCount
+                        }
+                    }
+                }
+            }
+        }
+    ''')
+    qs = Item.objects.all()
+    items = gql_optimizer.QueryOptimizer(info).optimize(qs)
+    optimized_items = qs.only('id', 'catalogue_id')
+    optimized_items = optimized_items.prefetch_related(Prefetch(
+        'catalogue',
+        queryset=Catalogue.objects.only('id').annotate(item_count=Count('items'))
+    ))
+    # optimized_items = qs)
+    assert_query_equality(items, optimized_items)
+
+
+@pytest.mark.django_db
+def test_should_work_with_nested_suggested_annotations_execution():
+    catalogue_1 = Catalogue.objects.create(name='foo')
+
+    Item.objects.create(id=8, name='foo', catalogue=catalogue_1)
+
+    # Queries: count, prefetch (because of annotation), relayItemsGlobalId
+    with assert_num_queries(3):
+        result = schema.execute('''
+        query Query {
+            relayItemsGlobalId {
+                edges {
+                    node {
+                        id
+                        catalogue {
+                          id
+                          itemCount
+                        }
+                    }
+                }
+            }
+        }
+    ''')
+
+    assert not result.errors
+    assert result.data == {
+        'relayItemsGlobalId': {
+            'edges': [{
+                'node': {
+                    'id': 'SXRlbU5vZGVHbG9iYWxJRDo4',
+                    'catalogue': {
+                        'id': 'Q2F0YWxvZ3VlTm9kZTox',
+                        'itemCount': 1
+                    }
+                }
+            }]
+        }
+    }
