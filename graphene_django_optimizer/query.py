@@ -271,26 +271,26 @@ class QueryOptimizer(object):
             optimization_hints.select_related(info, *args),
             store.select_list,
             None,
-            optimization_hints.apply,
+            True,
         )
         self._add_optimization_hints(
             optimization_hints.prefetch_related(info, *args),
             store.prefetch_list,
             store.prefetch_not_applied,
-            optimization_hints.apply,
+            optimization_hints.apply_prefetch_related,
         )
         self._add_optimization_hints(
             optimization_hints.annotate(info, *args),
             store.annotate_dict,
             None,
-            optimization_hints.apply,
+            True,
         )
         if store.only_list is not None:
             self._add_optimization_hints(
                 optimization_hints.only(info, *args),
                 store.only_list,
                 None,
-                optimization_hints.apply,
+                True,
             )
         return True
 
@@ -299,7 +299,7 @@ class QueryOptimizer(object):
             if not is_iterable(source):
                 source = (source,)
 
-            if not should_apply or not not_applied:
+            if should_apply or not not_applied:
                 if isinstance(target, dict):
                     target.update(source)
                 else:
