@@ -39,7 +39,7 @@ class QueryOptimizer(object):
         # Used to include the parent_id in the 'only' set for prefetch hint.
         self.parent_id_field = kwargs.get('parent_id_field', None)
 
-    def optimize(self, queryset, annotations=None, append_only=None):
+    def initalize_store(self, queryset, annotations=None, append_only=None):
         info = self.root_info
         field_def = get_field_def(info.schema, info.parent_type, info.field_name)
         store = self._optimize_gql_selections(
@@ -57,6 +57,11 @@ class QueryOptimizer(object):
         # Allow forcing attributes in only.
         if append_only:
             store.append_only_list += append_only
+
+        return store
+
+    def optimize(self, queryset, annotations=None, append_only=None):
+        store = self.initalize_store(queryset, annotations, append_only)
 
         return store.optimize_queryset(queryset)
 
