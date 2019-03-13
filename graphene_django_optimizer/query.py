@@ -39,7 +39,7 @@ class QueryOptimizer(object):
         # Used to include the parent_id in the 'only' set for prefetch hint.
         self.parent_id_field = kwargs.get('parent_id_field', None)
 
-    def initalize_store(self, queryset, annotations=None, append_only=None):
+    def optimize(self, queryset, annotations=None, append_only=None):
         info = self.root_info
         field_def = get_field_def(info.schema, info.parent_type, info.field_name)
         store = self._optimize_gql_selections(
@@ -57,11 +57,6 @@ class QueryOptimizer(object):
         # Allow forcing attributes in only.
         if append_only:
             store.append_only_list += append_only
-
-        return store
-
-    def optimize(self, queryset, annotations=None, append_only=None):
-        store = self.initalize_store(queryset, annotations, append_only)
 
         return store.optimize_queryset(queryset)
 
@@ -275,30 +270,45 @@ class QueryOptimizer(object):
         self._add_optimization_hints(
             optimization_hints.select_related(info, *args),
             store.select_list,
+            None,
+            optimization_hints.apply,
         )
         self._add_optimization_hints(
             optimization_hints.prefetch_related(info, *args),
             store.prefetch_list,
+            store.prefetch_not_applied,
+            optimization_hints.apply,
         )
         self._add_optimization_hints(
             optimization_hints.annotate(info, *args),
             store.annotate_dict,
+            None,
+            optimization_hints.apply,
         )
         if store.only_list is not None:
             self._add_optimization_hints(
                 optimization_hints.only(info, *args),
                 store.only_list,
+                None,
+                optimization_hints.apply,
             )
         return True
 
-    def _add_optimization_hints(self, source, target):
+    def _add_optimization_hints(self, source, target, not_applied, should_apply):
         if source:
             if not is_iterable(source):
                 source = (source,)
-            if isinstance(target, dict):
-                target.update(source)
+
+            if not should_apply or not not_applied:
+                if isinstance(target, dict):
+                    target.update(source)
+                else:
+                    target += source
             else:
-                target += source
+                if isinstance(not_applied, dict):
+                    not_applied.update(source)
+                else:
+                    not_applied += source
 
     def _get_name_from_resolver(self, resolver):
         optimization_hints = self._get_optimization_hints(resolver)
@@ -375,6 +385,8 @@ class QueryOptimizerStore():
         self.prefetch_list = []
         self.annotate_dict = {}
         self.only_list = []
+
+        self.prefetch_not_applied = []
 
         # A list of values to force append to 'only' if only is used.
         self.append_only_list = []
