@@ -299,7 +299,7 @@ class QueryOptimizer(object):
             if not is_iterable(source):
                 source = (source,)
 
-            if should_apply or not not_applied:
+            if should_apply or not_applied is None:
                 if isinstance(target, dict):
                     target.update(source)
                 else:
@@ -475,6 +475,7 @@ class QueryOptimizerStore():
     def append(self, store):
         self.select_list += store.select_list
         self.prefetch_list += store.prefetch_list
+        self.prefetch_not_applied += store.prefetch_not_applied
         self.annotate_dict.update(store.annotate_dict)
         if self.only_list is not None:
             if store.only_list is None:
