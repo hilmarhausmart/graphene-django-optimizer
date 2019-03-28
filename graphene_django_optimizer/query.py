@@ -1,4 +1,5 @@
 import functools
+import warnings
 
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import ForeignKey, Prefetch
@@ -148,7 +149,7 @@ class QueryOptimizer(object):
                             try:
                                 from django.db.models import DEFERRED  # noqa: F401
                             except ImportError:
-                                store.abort_only_optimization()
+                                store.abort_only_optimization(name)
                         else:
                             model = getattr(graphene_type._meta, 'model', None)
                             if model and name not in optimized_fields_by_model:
@@ -160,10 +161,11 @@ class QueryOptimizer(object):
                                         selection,
                                         selection_field_def,
                                         possible_type,
+                                        name
                                     )
         return store
 
-    def _optimize_field(self, store, model, selection, field_def, parent_type):
+    def _optimize_field(self, store, model, selection, field_def, parent_type, name):
         optimized_by_directive = self._optimize_field_by_directives(
             store, model, selection, field_def)
         optimized = optimized_by_directive
@@ -174,7 +176,7 @@ class QueryOptimizer(object):
                 store, selection, field_def, parent_type)
             optimized = optimized_by_name or optimized_by_hints
         if not optimized:
-            store.abort_only_optimization()
+            store.abort_only_optimization(name)
 
     def _optimize_field_by_directives(self, store, model, selection, field_def):
         variable_values = self.root_info.variable_values
@@ -421,7 +423,7 @@ class QueryOptimizerStore():
                     })
             if self.only_list is not None:
                 if store.only_list is None:
-                    self.abort_only_optimization()
+                    self.abort_only_optimization(name)
                 else:
                     for only in store.only_list:
                         self.only_list.append(name + LOOKUP_SEP + only)
@@ -452,8 +454,9 @@ class QueryOptimizerStore():
     def append_only(self, field):
         self.append_only_list.append(field)
 
-    def abort_only_optimization(self):
+    def abort_only_optimization(self, field):
         self.only_list = None
+        warnings.warn("Query optimization aborted, could not optimize field: {}.".format(field), UserWarning)
 
     def optimize_queryset(self, queryset):
         if self.select_list:
