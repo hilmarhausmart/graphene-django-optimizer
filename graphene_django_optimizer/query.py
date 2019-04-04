@@ -211,12 +211,16 @@ class QueryOptimizer(object):
             store.only(name)
             return True
         if model_field.many_to_one or model_field.one_to_one:
+            field_def_type = self._get_type(field_def)
             field_store = self._optimize_gql_selections(
-                self._get_type(field_def),
+                field_def_type,
                 selection,
                 # parent_type,
             )
-            store.select_related(name, field_store, model_field=model_field)
+            id_field = None
+            if hasattr(field_def_type, 'graphene_type') and hasattr(field_def_type.graphene_type._meta, 'id_field'):
+                id_field = field_def_type.graphene_type._meta.id_field
+            store.select_related(name, field_store, model_field=model_field, id_field=id_field)
             return True
         if model_field.one_to_many or model_field.many_to_many:
             field_store = self._optimize_gql_selections(
@@ -393,14 +397,10 @@ class QueryOptimizerStore():
         # A list of values to force append to 'only' if only is used.
         self.append_only_list = []
 
-    def select_related(self, name, store, model_field=None):
+    def select_related(self, name, store, model_field=None, id_field=None):
         if store.annotate_dict:
-            # self.prefetch_list.append(prefetch)
-            # print('hehe')
-            # print(model_field.related_model.objects.all().query)
-            # print('hehe')
             self.append_only(model_field.attname)
-            self.prefetch_related(name, store, model_field.related_model.objects.all())
+            self.prefetch_related(name, store, model_field.related_model.objects.all(), id_field=id_field)
         else:
             if store.select_list:
                 for select in store.select_list:
@@ -413,25 +413,24 @@ class QueryOptimizerStore():
                 else:
                     prefetch = name + LOOKUP_SEP + prefetch
                 self.prefetch_list.append(prefetch)
-            if store.annotate_dict:
-                for annotate_key in store.annotate_dict:
-                    annotate_value = store.annotate_dict[annotate_key]
-                    for source_expression in annotate_value.source_expressions:
-                        source_expression.name = name + LOOKUP_SEP + source_expression.name
-                    self.annotate_dict.update({
-                        name + LOOKUP_SEP + annotate_key: annotate_value
-                    })
             if self.only_list is not None:
                 if store.only_list is None:
                     self.abort_only_optimization(name)
                 else:
+                    if id_field and id_field != "pk":
+                        self.only_list.append(name + LOOKUP_SEP + id_field)
                     for only in store.only_list:
                         self.only_list.append(name + LOOKUP_SEP + only)
+                    if store.append_only_list:
+                        for append_only in store.append_only_list:
+                            self.append_only_list.append(name + LOOKUP_SEP + append_only)
 
-    def prefetch_related(self, name, store, queryset, attname=None):
+    def prefetch_related(self, name, store, queryset, attname=None, id_field=None):
         if store.select_list or store.only_list:
             if attname and store.only_list:
                 store.only_list.append(attname)
+            if id_field and store.only_list and id_field != "pk":
+                store.only_list.append(id_field)
 
             queryset = store.optimize_queryset(queryset)
             self.prefetch_list.append(Prefetch(name, queryset=queryset))
