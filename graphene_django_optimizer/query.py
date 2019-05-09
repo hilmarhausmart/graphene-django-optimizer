@@ -171,7 +171,7 @@ class QueryOptimizer(object):
         optimized = optimized_by_directive
         if not optimized:
             optimized_by_name = self._optimize_field_by_name(
-                store, model, selection, field_def)
+                store, model, selection, field_def, parent_type)
             optimized_by_hints = self._optimize_field_by_hints(
                 store, selection, field_def, parent_type)
             optimized = optimized_by_name or optimized_by_hints
@@ -198,8 +198,8 @@ class QueryOptimizer(object):
 
         return False
 
-    def _optimize_field_by_name(self, store, model, selection, field_def):
-        name, ignore = self._get_name_from_resolver(field_def.resolver)
+    def _optimize_field_by_name(self, store, model, selection, field_def, parent_type):
+        name, ignore = self._get_name_from_resolver(field_def.resolver, parent_type)
         if not name:
             return False
         if ignore:
@@ -316,13 +316,16 @@ class QueryOptimizer(object):
                 else:
                     not_applied += source
 
-    def _get_name_from_resolver(self, resolver):
+    def _get_name_from_resolver(self, resolver, parent_type):
         optimization_hints = self._get_optimization_hints(resolver)
         if optimization_hints:
             name = optimization_hints.model_field
             if name:
                 return name, optimization_hints.ignore
         if self._is_resolver_for_id_field(resolver):
+            if hasattr(parent_type, 'graphene_type') and hasattr(parent_type.graphene_type._meta, 'id_field'):
+                return parent_type.graphene_type._meta.id_field, False
+
             return self.id_field, False
         elif isinstance(resolver, functools.partial):
             resolver_fn = resolver
