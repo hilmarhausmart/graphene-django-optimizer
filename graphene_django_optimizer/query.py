@@ -5,7 +5,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db.models import ForeignKey, Prefetch
 from django.db.models.constants import LOOKUP_SEP
 from graphene import GlobalID
-from graphene.types.resolver import attr_resolver
+from graphene.types.resolver import default_resolver
 from graphene_djangorestframework.types import DjangoObjectType
 from graphene_djangorestframework.fields import DjangoListField
 from graphene_djangorestframework.relay.fields import DjangoConnectionField
@@ -331,7 +331,7 @@ class QueryOptimizer(object):
             resolver_fn = resolver
             if resolver_fn.func == DjangoListField.list_resolver:
                 resolver_fn = resolver_fn.args[0]
-            if hasattr(resolver_fn, 'func') and resolver_fn.func == attr_resolver:
+            if hasattr(resolver_fn, 'func') and resolver_fn.func == default_resolver:
                 return resolver_fn.args[0], False
         return None, False
 
